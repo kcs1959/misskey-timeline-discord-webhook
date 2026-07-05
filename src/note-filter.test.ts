@@ -7,6 +7,7 @@ import {
   getForwardBlockReason,
   noteHasCw,
   noteHasSensitiveMedia,
+  noteIsReply,
 } from './note-filter.js';
 
 function createFile(
@@ -65,12 +66,24 @@ describe('noteHasSensitiveMedia', () => {
   });
 });
 
+describe('noteIsReply', () => {
+  it('detects reply notes by replyId or nested reply', () => {
+    assert.equal(noteIsReply(createNote({ replyId: 'parent1' })), true);
+    assert.equal(
+      noteIsReply(createNote({ reply: createNote({ id: 'parent1' }) })),
+      true,
+    );
+    assert.equal(noteIsReply(createNote()), false);
+  });
+});
+
 describe('getForwardBlockReason', () => {
   it('blocks CW notes when FORWARD_CW is false', () => {
     assert.equal(
       getForwardBlockReason(createNote({ cw: 'warning' }), {
         forwardCw: false,
         forwardNsfw: true,
+        forwardReplies: true,
       }),
       'CW',
     );
@@ -83,9 +96,21 @@ describe('getForwardBlockReason', () => {
         {
           forwardCw: true,
           forwardNsfw: false,
+          forwardReplies: true,
         },
       ),
       'NSFW',
+    );
+  });
+
+  it('blocks reply notes when FORWARD_REPLIES is false', () => {
+    assert.equal(
+      getForwardBlockReason(createNote({ replyId: 'parent1' }), {
+        forwardCw: true,
+        forwardNsfw: true,
+        forwardReplies: false,
+      }),
+      'reply',
     );
   });
 
@@ -94,6 +119,7 @@ describe('getForwardBlockReason', () => {
       getForwardBlockReason(createNote(), {
         forwardCw: true,
         forwardNsfw: false,
+        forwardReplies: true,
       }),
       null,
     );
