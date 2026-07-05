@@ -2,9 +2,11 @@ import { Stream } from 'misskey-js';
 import type { Channels, IChannelConnection } from 'misskey-js';
 
 import { loadConfig, type TimelineChannel } from './config.js';
-import { buildDiscordPayload, sendToDiscord } from './discord.js';
+import { DiscordWebhookQueue } from './discord-queue.js';
+import { buildDiscordPayload } from './discord.js';
 
 const config = loadConfig();
+const discordQueue = new DiscordWebhookQueue();
 
 const stream = new Stream(
   config.misskeyOrigin,
@@ -36,7 +38,7 @@ function attachChannel(): void {
     void (async () => {
       try {
         const payload = buildDiscordPayload(note, config.misskeyOrigin);
-        await sendToDiscord(config.discordWebhookUrl, payload);
+        await discordQueue.enqueue(config.discordWebhookUrl, payload);
         console.log(`Forwarded note ${note.id} by ${note.user.username}`);
       } catch (error) {
         console.error(`Failed to forward note ${note.id}:`, error);

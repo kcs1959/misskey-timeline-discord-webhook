@@ -18,6 +18,38 @@ type DiscordWebhookPayload = {
   allowed_mentions?: { parse: [] };
 };
 
+export type { DiscordWebhookPayload };
+
+export class DiscordWebhookError extends Error {
+  readonly status: number;
+  readonly retryAfterMs: number | null;
+
+  constructor(message: string, status: number, retryAfterMs: number | null) {
+    super(message);
+    this.name = 'DiscordWebhookError';
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const seconds = Number(value);
+  if (!Number.isNaN(seconds)) {
+    return seconds * 1000;
+  }
+
+  const retryAt = Date.parse(value);
+  if (!Number.isNaN(retryAt)) {
+    return Math.max(0, retryAt - Date.now());
+  }
+
+  return null;
+}
+
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
@@ -153,8 +185,12 @@ export async function sendToDiscord(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
+    throw new DiscordWebhookError(
       `Discord webhook failed (${String(response.status)}): ${body}`,
+      response.status,
+      response.status === 429
+        ? parseRetryAfter(response.headers.get('Retry-After'))
+        : null,
     );
   }
 }
