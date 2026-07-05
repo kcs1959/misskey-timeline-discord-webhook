@@ -52,7 +52,7 @@ function attachChannel(): void {
   channel = stream.useChannel(config.timeline, channelParams);
 
   channel.on('note', (note) => {
-    if (noteDeduper.isDuplicate(note.id)) {
+    if (!noteDeduper.tryAcquire(note.id)) {
       console.log(`Skipping duplicate note ${note.id}`);
       return;
     }
@@ -62,6 +62,7 @@ function attachChannel(): void {
       forwardNsfw: config.forwardNsfw,
     });
     if (blockReason) {
+      noteDeduper.release(note.id);
       console.log(`Skipping note ${note.id} (${blockReason} content filtered)`);
       return;
     }
@@ -70,8 +71,10 @@ function attachChannel(): void {
       try {
         const payload = buildDiscordPayload(note, config.misskeyOrigin);
         await discordQueue.enqueue(config.discordWebhookUrl, payload);
+        noteDeduper.markForwarded(note.id);
         console.log(`Forwarded note ${note.id} by ${note.user.username}`);
       } catch (error) {
+        noteDeduper.release(note.id);
         console.error(`Failed to forward note ${note.id}:`, error);
       }
     })();

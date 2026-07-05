@@ -30,10 +30,21 @@ describe('loadConfig', () => {
 });
 
 describe('NoteDeduper', () => {
-  it('detects duplicate note IDs', () => {
+  it('allows a note through once and blocks after forwarding', () => {
     const deduper = new NoteDeduper();
 
-    assert.equal(deduper.isDuplicate('note1'), false);
-    assert.equal(deduper.isDuplicate('note1'), true);
+    assert.equal(deduper.tryAcquire('note1'), true);
+    assert.equal(deduper.tryAcquire('note1'), false);
+
+    deduper.markForwarded('note1');
+    assert.equal(deduper.tryAcquire('note1'), false);
+  });
+
+  it('allows retry after release', () => {
+    const deduper = new NoteDeduper();
+
+    assert.equal(deduper.tryAcquire('note1'), true);
+    deduper.release('note1');
+    assert.equal(deduper.tryAcquire('note1'), true);
   });
 });
