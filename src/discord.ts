@@ -2,6 +2,7 @@ import { acct, entities } from 'misskey-js';
 
 const DISCORD_CONTENT_LIMIT = 2000;
 const DISCORD_EMBED_LIMIT = 10;
+const DISCORD_FETCH_TIMEOUT_MS = 30_000;
 
 type DiscordEmbed = {
   title?: string;
@@ -285,6 +286,7 @@ export async function sendToDiscord(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(DISCORD_FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
