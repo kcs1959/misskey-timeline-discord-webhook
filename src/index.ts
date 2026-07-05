@@ -4,9 +4,11 @@ import type { Channels, IChannelConnection } from 'misskey-js';
 import { loadConfig, type TimelineChannel } from './config.js';
 import { DiscordWebhookQueue } from './discord-queue.js';
 import { buildDiscordPayload } from './discord.js';
+import { NoteDeduper } from './note-dedup.js';
 
 const config = loadConfig();
 const discordQueue = new DiscordWebhookQueue();
+const noteDeduper = new NoteDeduper();
 
 const stream = new Stream(
   config.misskeyOrigin,
@@ -35,6 +37,11 @@ function attachChannel(): void {
   channel = stream.useChannel(config.timeline, channelParams);
 
   channel.on('note', (note) => {
+    if (noteDeduper.isDuplicate(note.id)) {
+      console.log(`Skipping duplicate note ${note.id}`);
+      return;
+    }
+
     void (async () => {
       try {
         const payload = buildDiscordPayload(note, config.misskeyOrigin);
