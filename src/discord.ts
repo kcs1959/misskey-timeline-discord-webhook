@@ -3,6 +3,9 @@ import { acct, entities } from 'misskey-js';
 const DISCORD_CONTENT_LIMIT = 2000;
 const DISCORD_EMBED_LIMIT = 10;
 const DISCORD_FETCH_TIMEOUT_MS = 30_000;
+const DISCORD_USERNAME_LIMIT = 80;
+const DISCORD_EMBED_TITLE_LIMIT = 256;
+const DISCORD_EMBED_TOTAL_CHARS = 6000;
 
 type DiscordEmbed = {
   title?: string;
@@ -53,6 +56,15 @@ function parseRetryAfter(value: string | null): number | null {
   }
 
   return null;
+}
+
+function truncatePlain(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const ellipsis = '…';
+  return text.slice(0, maxLength - ellipsis.length) + ellipsis;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -213,6 +225,65 @@ function collectMedia(
   return { embeds, sensitiveLines, overflowLines };
 }
 
+function embedCharCount(embed: DiscordEmbed): number {
+  let count = 0;
+  if (embed.title) {
+    count += embed.title.length;
+  }
+  if (embed.description) {
+    count += embed.description.length;
+  }
+  if (embed.url) {
+    count += embed.url.length;
+  }
+  if (embed.image?.url) {
+    count += embed.image.url.length;
+  }
+  return count;
+}
+
+function embedToLink(embed: DiscordEmbed): string | null {
+  const url = embed.url ?? embed.image?.url;
+  if (!url) {
+    return null;
+  }
+
+  const label = embed.title ? truncatePlain(embed.title, 100) : 'Image';
+  return `[${label}](${url})`;
+}
+
+function enforceEmbedLimits(
+  embeds: DiscordEmbed[],
+  overflowLines: string[],
+): DiscordEmbed[] {
+  const limited = embeds.map((embed) => ({
+    ...embed,
+    title: embed.title
+      ? truncatePlain(embed.title, DISCORD_EMBED_TITLE_LIMIT)
+      : undefined,
+  }));
+
+  let totalChars = limited.reduce(
+    (sum, embed) => sum + embedCharCount(embed),
+    0,
+  );
+  while (totalChars > DISCORD_EMBED_TOTAL_CHARS && limited.length > 0) {
+    const removed = limited.pop();
+    if (!removed) {
+      break;
+    }
+
+    const link = embedToLink(removed);
+    if (link) {
+      overflowLines.push(link);
+    }
+
+    totalChars = limited.reduce((sum, embed) => sum + embedCharCount(embed), 0);
+  }
+
+  return limited;
+}
+
 export function buildDiscordPayload(
   note: entities.Note,
   origin: string,
@@ -248,7 +319,12 @@ export function buildDiscordPayload(
     lines.push(formatQuotedNote(note.renote, origin));
   }
 
-  const { embeds, sensitiveLines, overflowLines } = collectMedia(note, origin);
+  const {
+    embeds: rawEmbeds,
+    sensitiveLines,
+    overflowLines,
+  } = collectMedia(note, origin);
+  const embeds = enforceEmbedLimits(rawEmbeds, overflowLines);
   if (sensitiveLines.length > 0) {
     if (lines.length > 0) {
       lines.push('');
@@ -271,7 +347,10 @@ export function buildDiscordPayload(
 
   return {
     content: content || undefined,
-    username: note.user.name || note.user.username,
+    username: truncatePlain(
+      note.user.name || note.user.username,
+      DISCORD_USERNAME_LIMIT,
+    ),
     avatar_url: toAbsoluteUrl(note.user.avatarUrl, origin),
     embeds: embeds.length > 0 ? embeds : undefined,
     allowed_mentions: { parse: [] },

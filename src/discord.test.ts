@@ -190,6 +190,50 @@ describe('buildDiscordPayload', () => {
     );
   });
 
+  it('truncates long webhook usernames', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        user: createUser({ name: 'n'.repeat(100) }),
+      }),
+      origin,
+    );
+
+    assert.equal(payload.username?.length, 80);
+    assert.match(payload.username ?? '', /…$/);
+  });
+
+  it('truncates long embed titles', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        files: [
+          createFile({
+            type: 'application/pdf',
+            name: 'f'.repeat(300) + '.pdf',
+            url: '/files/long-name.pdf',
+          }),
+        ],
+      }),
+      origin,
+    );
+
+    assert.equal(payload.embeds?.[0]?.title?.length, 256);
+    assert.match(payload.embeds?.[0]?.title ?? '', /…$/);
+  });
+
+  it('moves oversized embeds to attachment links', () => {
+    const longUrl = `${origin}/files/${'a'.repeat(7000)}.png`;
+    const payload = buildDiscordPayload(
+      createNote({
+        files: [createFile({ url: longUrl })],
+      }),
+      origin,
+    );
+
+    assert.equal(payload.embeds, undefined);
+    assert.match(payload.content ?? '', /\*\*Attachments:\*\*/);
+    assert.match(payload.content ?? '', /\[Image\]\(/);
+  });
+
   it('includes poll choices as text', () => {
     const payload = buildDiscordPayload(
       createNote({
