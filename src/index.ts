@@ -52,6 +52,8 @@ stream.on('_connected_', () => {
 
 stream.on('_disconnected_', () => {
   console.warn('Disconnected from Misskey streaming API');
+  channel?.dispose();
+  channel = undefined;
 });
 
 function shutdown(): void {
