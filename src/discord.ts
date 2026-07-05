@@ -45,6 +45,10 @@ function formatUserName(user: entities.UserLite): string {
   return acct.toString(user);
 }
 
+function wrapSpoiler(text: string): string {
+  return `||${text}||`;
+}
+
 function formatQuotedNote(note: entities.Note, origin: string): string {
   const user = formatUserName(note.user);
   const lines = [`> **${user}**`];
@@ -54,7 +58,7 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
   }
   if (note.text) {
     for (const line of note.text.split('\n')) {
-      lines.push(`> ${line}`);
+      lines.push(note.cw ? `> ${wrapSpoiler(line)}` : `> ${line}`);
     }
   }
   if (!note.text && !note.cw) {
@@ -101,7 +105,7 @@ export function buildDiscordPayload(
   }
 
   if (note.text) {
-    lines.push(note.text);
+    lines.push(note.cw ? wrapSpoiler(note.text) : note.text);
   }
 
   if (note.renote) {

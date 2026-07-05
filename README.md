@@ -52,6 +52,7 @@ npm run build && npm start
 
 - 投稿者のアイコン・表示名を Webhook の `username` / `avatar_url` に設定
 - ノート本文・CW・引用リノートをそのままテキストで送信
+- CW 付きノートの本文は Discord のスポイラー（`||...||`）で隠す
 - 画像は embed、それ以外のファイルはリンクとして送信
 - ノート URL を末尾に付与
 
