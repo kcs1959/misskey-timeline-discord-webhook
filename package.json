@@ -26,6 +26,9 @@
     ],
     "**/*": "prettier --write --ignore-unknown"
   },
+  "dependencies": {
+    "misskey-js": "^2026.6.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tsconfig/node22": "^22.0.5",
