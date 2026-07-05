@@ -9,8 +9,11 @@ import { getForwardBlockReason } from './note-filter.js';
 import { NoteDeduper } from './note-dedup.js';
 
 const config = loadConfig();
-const discordQueue = new DiscordWebhookQueue();
-const noteDeduper = new NoteDeduper();
+const discordQueue = new DiscordWebhookQueue(
+  config.discordQueueMax,
+  config.discordSendIntervalMs,
+);
+const noteDeduper = new NoteDeduper(config.dedupMax);
 const HEALTH_FILE = '/tmp/healthy';
 let shuttingDown = false;
 
@@ -61,9 +64,10 @@ function attachChannel(): void {
     const blockReason = getForwardBlockReason(note, {
       forwardCw: config.forwardCw,
       forwardNsfw: config.forwardNsfw,
+      forwardReplies: config.forwardReplies,
     });
     if (blockReason) {
-      noteDeduper.release(note.id);
+      noteDeduper.markSkipped(note.id);
       console.log(`Skipping note ${note.id} (${blockReason} content filtered)`);
       return;
     }
@@ -77,7 +81,9 @@ function attachChannel(): void {
       } catch (error) {
         noteDeduper.release(note.id);
         if (error instanceof QueueFullError) {
-          console.warn(`Dropped note ${note.id}: ${error.message}`);
+          console.warn(
+            `Dropped note ${note.id}: ${error.message} (total dropped: ${String(discordQueue.droppedTotal)})`,
+          );
           return;
         }
         console.error(`Failed to forward note ${note.id}:`, error);
