@@ -1,7 +1,5 @@
 import { config as loadDotenv } from 'dotenv';
 
-loadDotenv();
-
 export type TimelineChannel =
   'localTimeline' | 'globalTimeline' | 'homeTimeline' | 'hybridTimeline';
 
@@ -108,6 +106,8 @@ function parseTimeline(value: string | undefined): TimelineChannel {
 }
 
 export function loadConfig(): Config {
+  loadDotenv();
+
   const misskeyOrigin = parseHttpOrigin(
     'MISSKEY_ORIGIN',
     requireEnv('MISSKEY_ORIGIN'),
