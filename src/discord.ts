@@ -104,6 +104,7 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
 function appendFileContent(
   embeds: DiscordEmbed[],
   sensitiveLines: string[],
+  overflowLines: string[],
   files: entities.DriveFile[] | undefined,
   origin: string,
 ): void {
@@ -122,6 +123,7 @@ function appendFileContent(
     }
 
     if (embeds.length >= DISCORD_EMBED_LIMIT) {
+      overflowLines.push(`[${file.name}](${fileUrl})`);
       continue;
     }
 
@@ -139,16 +141,27 @@ function appendFileContent(
 function collectMedia(
   note: entities.Note,
   origin: string,
-): { embeds: DiscordEmbed[]; sensitiveLines: string[] } {
+): {
+  embeds: DiscordEmbed[];
+  sensitiveLines: string[];
+  overflowLines: string[];
+} {
   const embeds: DiscordEmbed[] = [];
   const sensitiveLines: string[] = [];
+  const overflowLines: string[] = [];
 
-  appendFileContent(embeds, sensitiveLines, note.files, origin);
+  appendFileContent(embeds, sensitiveLines, overflowLines, note.files, origin);
   if (note.renote) {
-    appendFileContent(embeds, sensitiveLines, note.renote.files, origin);
+    appendFileContent(
+      embeds,
+      sensitiveLines,
+      overflowLines,
+      note.renote.files,
+      origin,
+    );
   }
 
-  return { embeds, sensitiveLines };
+  return { embeds, sensitiveLines, overflowLines };
 }
 
 export function buildDiscordPayload(
@@ -173,13 +186,20 @@ export function buildDiscordPayload(
     lines.push(formatQuotedNote(note.renote, origin));
   }
 
-  const { embeds, sensitiveLines } = collectMedia(note, origin);
+  const { embeds, sensitiveLines, overflowLines } = collectMedia(note, origin);
   if (sensitiveLines.length > 0) {
     if (lines.length > 0) {
       lines.push('');
     }
     lines.push('**Sensitive media:**');
     lines.push(...sensitiveLines);
+  }
+  if (overflowLines.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('**Attachments:**');
+    lines.push(...overflowLines);
   }
 
   lines.push('');

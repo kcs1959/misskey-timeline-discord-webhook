@@ -147,4 +147,22 @@ describe('buildDiscordPayload', () => {
     assert.equal(payload.content?.length, 2000);
     assert.match(payload.content ?? '', /…$/);
   });
+
+  it('adds overflow attachments as links', () => {
+    const files = Array.from({ length: 11 }, (_, index) =>
+      createFile({
+        id: `file${String(index)}`,
+        name: `photo${String(index)}.png`,
+        url: `/files/photo${String(index)}.png`,
+      }),
+    );
+    const payload = buildDiscordPayload(createNote({ files }), origin);
+
+    assert.equal(payload.embeds?.length, 10);
+    assert.match(payload.content ?? '', /\*\*Attachments:\*\*/);
+    assert.match(
+      payload.content ?? '',
+      /\[photo10\.png\]\(https:\/\/misskey\.example\.com\/files\/photo10\.png\)/,
+    );
+  });
 });
