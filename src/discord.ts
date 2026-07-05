@@ -32,6 +32,10 @@ export class DiscordWebhookError extends Error {
   }
 }
 
+export function isRetryableDiscordError(error: DiscordWebhookError): boolean {
+  return error.status === 429 || error.status >= 500;
+}
+
 function parseRetryAfter(value: string | null): number | null {
   if (!value) {
     return null;

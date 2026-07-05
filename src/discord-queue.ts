@@ -1,5 +1,6 @@
 import {
   DiscordWebhookError,
+  isRetryableDiscordError,
   sendToDiscord,
   type DiscordWebhookPayload,
 } from './discord.js';
@@ -98,6 +99,13 @@ export class DiscordWebhookQueue {
       await sendToDiscord(webhookUrl, payload);
     } catch (error) {
       if (attempt >= MAX_RETRIES) {
+        throw error;
+      }
+
+      if (
+        error instanceof DiscordWebhookError &&
+        !isRetryableDiscordError(error)
+      ) {
         throw error;
       }
 
