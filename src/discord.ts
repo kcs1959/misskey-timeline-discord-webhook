@@ -54,7 +54,19 @@ function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
   }
-  return `${text.slice(0, maxLength - 1)}…`;
+
+  const ellipsis = '…';
+  const closeSpoiler = '||';
+  let sliceEnd = maxLength - ellipsis.length;
+  let truncated = text.slice(0, sliceEnd);
+  const spoilerCount = (truncated.match(/\|\|/g) ?? []).length;
+
+  if (spoilerCount % 2 !== 0) {
+    sliceEnd = maxLength - closeSpoiler.length - ellipsis.length;
+    truncated = text.slice(0, sliceEnd) + closeSpoiler;
+  }
+
+  return truncated + ellipsis;
 }
 
 export function toAbsoluteUrl(

@@ -148,6 +148,18 @@ describe('buildDiscordPayload', () => {
     assert.match(payload.content ?? '', /…$/);
   });
 
+  it('closes unclosed spoiler markers when truncating', () => {
+    const payload = buildDiscordPayload(
+      createNote({ cw: 'warning', text: 'x'.repeat(2500) }),
+      origin,
+    );
+
+    const content = payload.content ?? '';
+    const spoilerCount = (content.match(/\|\|/g) ?? []).length;
+    assert.equal(spoilerCount % 2, 0);
+    assert.equal(content.length, 2000);
+  });
+
   it('adds overflow attachments as links', () => {
     const files = Array.from({ length: 11 }, (_, index) =>
       createFile({
