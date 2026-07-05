@@ -7,7 +7,7 @@ import {
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
-const MIN_INTERVAL_MS = 2000;
+export const DEFAULT_SEND_INTERVAL_MS = 2000;
 export const DEFAULT_QUEUE_MAX = 500;
 
 type QueueItem = {
@@ -33,11 +33,16 @@ export class DiscordWebhookQueue {
   private pumping = false;
   private inFlight = 0;
   private lastSentAt = 0;
+  private droppedCount = 0;
 
-  constructor(private readonly maxSize = DEFAULT_QUEUE_MAX) {}
+  constructor(
+    private readonly maxSize = DEFAULT_QUEUE_MAX,
+    private readonly minIntervalMs = DEFAULT_SEND_INTERVAL_MS,
+  ) {}
 
   enqueue(webhookUrl: string, payload: DiscordWebhookPayload): Promise<void> {
     if (this.pendingCount >= this.maxSize) {
+      this.droppedCount++;
       return Promise.reject(new QueueFullError(this.maxSize));
     }
 
@@ -49,6 +54,10 @@ export class DiscordWebhookQueue {
 
   get pendingCount(): number {
     return this.queue.length + this.inFlight;
+  }
+
+  get droppedTotal(): number {
+    return this.droppedCount;
   }
 
   async drain(): Promise<void> {
@@ -70,7 +79,7 @@ export class DiscordWebhookQueue {
         break;
       }
 
-      const waitMs = this.lastSentAt + MIN_INTERVAL_MS - Date.now();
+      const waitMs = this.lastSentAt + this.minIntervalMs - Date.now();
       if (waitMs > 0) {
         await sleep(waitMs);
       }

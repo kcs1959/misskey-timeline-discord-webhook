@@ -41,6 +41,8 @@ describe('DiscordWebhookQueue', () => {
       QueueFullError,
     );
 
+    assert.equal(queue.droppedTotal, 1);
+
     releaseFirst?.();
     await first;
   });
