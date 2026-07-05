@@ -69,12 +69,14 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
   return lines.join('\n');
 }
 
-function collectEmbeds(note: entities.Note, origin: string): DiscordEmbed[] {
-  const embeds: DiscordEmbed[] = [];
-
-  for (const file of note.files ?? []) {
+function appendFileEmbeds(
+  embeds: DiscordEmbed[],
+  files: entities.DriveFile[] | undefined,
+  origin: string,
+): void {
+  for (const file of files ?? []) {
     if (embeds.length >= DISCORD_EMBED_LIMIT) {
-      break;
+      return;
     }
     const fileUrl = toAbsoluteUrl(file.url, origin);
     if (!fileUrl) {
@@ -88,6 +90,15 @@ function collectEmbeds(note: entities.Note, origin: string): DiscordEmbed[] {
         url: fileUrl,
       });
     }
+  }
+}
+
+function collectEmbeds(note: entities.Note, origin: string): DiscordEmbed[] {
+  const embeds: DiscordEmbed[] = [];
+
+  appendFileEmbeds(embeds, note.files, origin);
+  if (note.renote) {
+    appendFileEmbeds(embeds, note.renote.files, origin);
   }
 
   return embeds;
