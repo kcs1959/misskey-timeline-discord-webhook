@@ -1,8 +1,8 @@
 {
-  "name": "typescript-app-template",
+  "name": "misskey-timeline-discord-webhook",
   "version": "1.0.0",
   "private": true,
-  "repository": "https://github.com/hal-shu-sato/typescript-app-template.git",
+  "repository": "https://github.com/kcs1959/misskey-timeline-discord-webhook.git",
   "license": "UNLICENSED",
   "author": "ato lash <28973861+hal-shu-sato@users.noreply.github.com>",
   "main": "dist/index.js",
@@ -27,6 +27,7 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "misskey-js": "^2026.6.0"
   },
   "devDependencies": {
