@@ -1,12 +1,14 @@
-const MAX_TRACKED_NOTES = 1000;
+export const DEFAULT_DEDUP_MAX = 1000;
 
 export class NoteDeduper {
-  private readonly forwarded = new Set<string>();
+  private readonly processed = new Set<string>();
   private readonly order: string[] = [];
   private readonly inFlight = new Set<string>();
 
+  constructor(private readonly maxSize = DEFAULT_DEDUP_MAX) {}
+
   tryAcquire(noteId: string): boolean {
-    if (this.forwarded.has(noteId) || this.inFlight.has(noteId)) {
+    if (this.processed.has(noteId) || this.inFlight.has(noteId)) {
       return false;
     }
 
@@ -15,24 +17,32 @@ export class NoteDeduper {
   }
 
   markForwarded(noteId: string): void {
-    this.inFlight.delete(noteId);
+    this.track(noteId);
+  }
 
-    if (this.forwarded.has(noteId)) {
-      return;
-    }
-
-    this.forwarded.add(noteId);
-    this.order.push(noteId);
-
-    if (this.order.length > MAX_TRACKED_NOTES) {
-      const oldest = this.order.shift();
-      if (oldest) {
-        this.forwarded.delete(oldest);
-      }
-    }
+  markSkipped(noteId: string): void {
+    this.track(noteId);
   }
 
   release(noteId: string): void {
     this.inFlight.delete(noteId);
+  }
+
+  private track(noteId: string): void {
+    this.inFlight.delete(noteId);
+
+    if (this.processed.has(noteId)) {
+      return;
+    }
+
+    this.processed.add(noteId);
+    this.order.push(noteId);
+
+    if (this.order.length > this.maxSize) {
+      const oldest = this.order.shift();
+      if (oldest) {
+        this.processed.delete(oldest);
+      }
+    }
   }
 }

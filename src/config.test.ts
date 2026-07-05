@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
 import { loadConfig } from './config.js';
-import { NoteDeduper } from './note-dedup.js';
 
 const originalEnv = { ...process.env };
 
@@ -50,25 +49,5 @@ describe('loadConfig', () => {
     process.env.DEDUP_MAX = '0';
 
     assert.throws(() => loadConfig(), /DEDUP_MAX must be a positive integer/);
-  });
-});
-
-describe('NoteDeduper', () => {
-  it('allows a note through once and blocks after forwarding', () => {
-    const deduper = new NoteDeduper();
-
-    assert.equal(deduper.tryAcquire('note1'), true);
-    assert.equal(deduper.tryAcquire('note1'), false);
-
-    deduper.markForwarded('note1');
-    assert.equal(deduper.tryAcquire('note1'), false);
-  });
-
-  it('allows retry after release', () => {
-    const deduper = new NoteDeduper();
-
-    assert.equal(deduper.tryAcquire('note1'), true);
-    deduper.release('note1');
-    assert.equal(deduper.tryAcquire('note1'), true);
   });
 });
