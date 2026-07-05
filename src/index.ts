@@ -5,6 +5,7 @@ import { unlinkSync, writeFileSync } from 'node:fs';
 import { loadConfig, type TimelineChannel } from './config.js';
 import { DiscordWebhookQueue } from './discord-queue.js';
 import { buildDiscordPayload } from './discord.js';
+import { getForwardBlockReason } from './note-filter.js';
 import { NoteDeduper } from './note-dedup.js';
 
 const config = loadConfig();
@@ -53,6 +54,15 @@ function attachChannel(): void {
   channel.on('note', (note) => {
     if (noteDeduper.isDuplicate(note.id)) {
       console.log(`Skipping duplicate note ${note.id}`);
+      return;
+    }
+
+    const blockReason = getForwardBlockReason(note, {
+      forwardCw: config.forwardCw,
+      forwardNsfw: config.forwardNsfw,
+    });
+    if (blockReason) {
+      console.log(`Skipping note ${note.id} (${blockReason} content filtered)`);
       return;
     }
 

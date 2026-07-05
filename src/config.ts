@@ -13,6 +13,8 @@ export type Config = {
   withRenotes: boolean;
   withReplies: boolean;
   withFiles: boolean;
+  forwardCw: boolean;
+  forwardNsfw: boolean;
 };
 
 function requireEnv(name: string): string {
@@ -110,5 +112,7 @@ export function loadConfig(): Config {
     withRenotes: parseBoolean(process.env.WITH_RENOTES, true),
     withReplies: parseBoolean(process.env.WITH_REPLIES, true),
     withFiles: parseBoolean(process.env.WITH_FILES, true),
+    forwardCw: parseBoolean(process.env.FORWARD_CW, true),
+    forwardNsfw: parseBoolean(process.env.FORWARD_NSFW, false),
   };
 }
