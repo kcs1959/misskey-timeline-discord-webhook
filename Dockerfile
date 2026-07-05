@@ -20,4 +20,7 @@ RUN npm ci --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
 
+RUN chown -R node:node /app
+USER node
+
 CMD ["node", "dist/index.js"]
