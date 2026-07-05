@@ -28,6 +28,7 @@ function createFile(
     name: 'photo.png',
     type: 'image/png',
     url: '/files/photo.png',
+    isSensitive: false,
     ...overrides,
   } as entities.DriveFile;
 }
@@ -121,6 +122,20 @@ describe('buildDiscordPayload', () => {
       'https://misskey.example.com/files/renote.jpg',
     );
     assert.match(payload.content ?? '', /original/);
+  });
+
+  it('renders sensitive images as spoiler links instead of embeds', () => {
+    const payload = buildDiscordPayload(
+      createNote({ files: [createFile({ isSensitive: true })] }),
+      origin,
+    );
+
+    assert.equal(payload.embeds, undefined);
+    assert.match(payload.content ?? '', /\*\*Sensitive media:\*\*/);
+    assert.match(
+      payload.content ?? '',
+      /\|\|\[Sensitive image\]\(https:\/\/misskey\.example\.com\/files\/photo\.png\)\|\|/,
+    );
   });
 
   it('truncates content longer than the Discord limit', () => {

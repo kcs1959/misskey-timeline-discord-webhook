@@ -101,19 +101,30 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
   return lines.join('\n');
 }
 
-function appendFileEmbeds(
+function appendFileContent(
   embeds: DiscordEmbed[],
+  sensitiveLines: string[],
   files: entities.DriveFile[] | undefined,
   origin: string,
 ): void {
   for (const file of files ?? []) {
-    if (embeds.length >= DISCORD_EMBED_LIMIT) {
-      return;
-    }
     const fileUrl = toAbsoluteUrl(file.url, origin);
     if (!fileUrl) {
       continue;
     }
+
+    if (file.isSensitive) {
+      const label = file.type.startsWith('image/')
+        ? 'Sensitive image'
+        : file.name;
+      sensitiveLines.push(`||[${label}](${fileUrl})||`);
+      continue;
+    }
+
+    if (embeds.length >= DISCORD_EMBED_LIMIT) {
+      continue;
+    }
+
     if (file.type.startsWith('image/')) {
       embeds.push({ image: { url: fileUrl } });
     } else {
@@ -125,15 +136,19 @@ function appendFileEmbeds(
   }
 }
 
-function collectEmbeds(note: entities.Note, origin: string): DiscordEmbed[] {
+function collectMedia(
+  note: entities.Note,
+  origin: string,
+): { embeds: DiscordEmbed[]; sensitiveLines: string[] } {
   const embeds: DiscordEmbed[] = [];
+  const sensitiveLines: string[] = [];
 
-  appendFileEmbeds(embeds, note.files, origin);
+  appendFileContent(embeds, sensitiveLines, note.files, origin);
   if (note.renote) {
-    appendFileEmbeds(embeds, note.renote.files, origin);
+    appendFileContent(embeds, sensitiveLines, note.renote.files, origin);
   }
 
-  return embeds;
+  return { embeds, sensitiveLines };
 }
 
 export function buildDiscordPayload(
@@ -158,11 +173,19 @@ export function buildDiscordPayload(
     lines.push(formatQuotedNote(note.renote, origin));
   }
 
+  const { embeds, sensitiveLines } = collectMedia(note, origin);
+  if (sensitiveLines.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('**Sensitive media:**');
+    lines.push(...sensitiveLines);
+  }
+
   lines.push('');
   lines.push(`${origin}/notes/${note.id}`);
 
   const content = truncate(lines.join('\n').trim(), DISCORD_CONTENT_LIMIT);
-  const embeds = collectEmbeds(note, origin);
 
   return {
     content: content || undefined,

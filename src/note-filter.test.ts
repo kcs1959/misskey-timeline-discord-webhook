@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import type { entities } from 'misskey-js';
+
+import {
+  getForwardBlockReason,
+  noteHasCw,
+  noteHasSensitiveMedia,
+} from './note-filter.js';
+
+function createFile(
+  overrides: Partial<entities.DriveFile> = {},
+): entities.DriveFile {
+  return {
+    id: 'file1',
+    name: 'photo.png',
+    type: 'image/png',
+    url: '/files/photo.png',
+    isSensitive: false,
+    ...overrides,
+  } as entities.DriveFile;
+}
+
+function createNote(overrides: Partial<entities.Note> = {}): entities.Note {
+  return {
+    id: 'note1',
+    text: 'Hello',
+    cw: null,
+    files: [],
+    renote: null,
+    ...overrides,
+  } as entities.Note;
+}
+
+describe('noteHasCw', () => {
+  it('detects CW on the note itself', () => {
+    assert.equal(noteHasCw(createNote({ cw: 'warning' })), true);
+  });
+
+  it('detects CW on a quoted renote', () => {
+    assert.equal(
+      noteHasCw(createNote({ renote: createNote({ cw: 'warning' }) })),
+      true,
+    );
+  });
+});
+
+describe('noteHasSensitiveMedia', () => {
+  it('detects sensitive files on the note or renote', () => {
+    assert.equal(
+      noteHasSensitiveMedia(
+        createNote({ files: [createFile({ isSensitive: true })] }),
+      ),
+      true,
+    );
+    assert.equal(
+      noteHasSensitiveMedia(
+        createNote({
+          renote: createNote({ files: [createFile({ isSensitive: true })] }),
+        }),
+      ),
+      true,
+    );
+  });
+});
+
+describe('getForwardBlockReason', () => {
+  it('blocks CW notes when FORWARD_CW is false', () => {
+    assert.equal(
+      getForwardBlockReason(createNote({ cw: 'warning' }), {
+        forwardCw: false,
+        forwardNsfw: true,
+      }),
+      'CW',
+    );
+  });
+
+  it('blocks NSFW notes when FORWARD_NSFW is false', () => {
+    assert.equal(
+      getForwardBlockReason(
+        createNote({ files: [createFile({ isSensitive: true })] }),
+        {
+          forwardCw: true,
+          forwardNsfw: false,
+        },
+      ),
+      'NSFW',
+    );
+  });
+
+  it('allows safe notes through', () => {
+    assert.equal(
+      getForwardBlockReason(createNote(), {
+        forwardCw: true,
+        forwardNsfw: false,
+      }),
+      null,
+    );
+  });
+});
