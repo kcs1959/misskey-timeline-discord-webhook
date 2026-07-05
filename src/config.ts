@@ -23,6 +23,41 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function parseHttpOrigin(name: string, value: string): string {
+  const trimmed = value.replace(/\/$/, '');
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error(`${name} must be a valid URL`);
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`${name} must use http or https`);
+  }
+  return trimmed;
+}
+
+function parseDiscordWebhookUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('DISCORD_WEBHOOK_URL must be a valid URL');
+  }
+  const host = url.hostname;
+  if (
+    host !== 'discord.com' &&
+    host !== 'discordapp.com' &&
+    !host.endsWith('.discord.com')
+  ) {
+    throw new Error('DISCORD_WEBHOOK_URL must be a Discord webhook URL');
+  }
+  if (!url.pathname.includes('/api/webhooks/')) {
+    throw new Error('DISCORD_WEBHOOK_URL must be a Discord webhook URL');
+  }
+  return value;
+}
+
 function parseBoolean(
   value: string | undefined,
   defaultValue: boolean,
@@ -50,9 +85,14 @@ function parseTimeline(value: string | undefined): TimelineChannel {
 }
 
 export function loadConfig(): Config {
-  const misskeyOrigin = requireEnv('MISSKEY_ORIGIN').replace(/\/$/, '');
+  const misskeyOrigin = parseHttpOrigin(
+    'MISSKEY_ORIGIN',
+    requireEnv('MISSKEY_ORIGIN'),
+  );
   const misskeyToken = process.env.MISSKEY_TOKEN?.trim() || null;
-  const discordWebhookUrl = requireEnv('DISCORD_WEBHOOK_URL');
+  const discordWebhookUrl = parseDiscordWebhookUrl(
+    requireEnv('DISCORD_WEBHOOK_URL'),
+  );
   const timeline = parseTimeline(process.env.TIMELINE);
 
   if (
