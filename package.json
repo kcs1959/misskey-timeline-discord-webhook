@@ -7,7 +7,7 @@
   "author": "ato lash <28973861+hal-shu-sato@users.noreply.github.com>",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
     "fix": "npm-run-all2 fix:*",
     "fix:eslint": "eslint --fix",
@@ -17,7 +17,8 @@
     "lint:prettier": "prettier --check .",
     "lint:ts": "tsc --noEmit",
     "prepare": "husky",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "lint-staged": {
     "*.ts": [

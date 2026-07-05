@@ -20,5 +20,11 @@ export default defineConfig(
       },
     },
   },
+  {
+    files: ['src/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
   eslintConfigPrettier,
 );
