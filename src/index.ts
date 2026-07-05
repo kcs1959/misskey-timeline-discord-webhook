@@ -48,6 +48,23 @@ const channelParams =
 
 let channel: IChannelConnection<Channels[TimelineChannel]> | undefined;
 
+function attachStreamErrorLogging(): void {
+  type ReconnectingWebSocketLike = {
+    addEventListener(event: 'error', handler: () => void): void;
+  };
+
+  const websocket = (
+    stream as unknown as { stream?: ReconnectingWebSocketLike }
+  ).stream;
+  if (!websocket) {
+    return;
+  }
+
+  websocket.addEventListener('error', () => {
+    console.error('Misskey WebSocket connection error');
+  });
+}
+
 function attachChannel(): void {
   if (channel) {
     return;
@@ -132,5 +149,7 @@ function shutdown(): void {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+attachStreamErrorLogging();
 
 console.log(`Listening to ${config.timeline} on ${config.misskeyOrigin}`);
