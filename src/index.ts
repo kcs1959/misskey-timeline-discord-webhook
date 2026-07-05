@@ -66,10 +66,13 @@ stream.on('_disconnected_', () => {
 });
 
 function shutdown(): void {
-  console.log('Shutting down...');
-  channel?.dispose();
-  stream.close();
-  process.exit(0);
+  void (async () => {
+    console.log('Shutting down...');
+    channel?.dispose();
+    stream.close();
+    await discordQueue.drain();
+    process.exit(0);
+  })();
 }
 
 process.on('SIGINT', shutdown);
