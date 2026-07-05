@@ -7,6 +7,7 @@ import {
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 const MIN_INTERVAL_MS = 2000;
+export const DEFAULT_QUEUE_MAX = 500;
 
 type QueueItem = {
   webhookUrl: string;
@@ -19,13 +20,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export class QueueFullError extends Error {
+  constructor(maxSize: number) {
+    super(`Discord webhook queue is full (${String(maxSize)} items)`);
+    this.name = 'QueueFullError';
+  }
+}
+
 export class DiscordWebhookQueue {
   private queue: QueueItem[] = [];
   private pumping = false;
   private inFlight = 0;
   private lastSentAt = 0;
 
+  constructor(private readonly maxSize = DEFAULT_QUEUE_MAX) {}
+
   enqueue(webhookUrl: string, payload: DiscordWebhookPayload): Promise<void> {
+    if (this.pendingCount >= this.maxSize) {
+      return Promise.reject(new QueueFullError(this.maxSize));
+    }
+
     return new Promise((resolve, reject) => {
       this.queue.push({ webhookUrl, payload, resolve, reject });
       void this.pump();

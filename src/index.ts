@@ -3,7 +3,7 @@ import type { Channels, IChannelConnection } from 'misskey-js';
 import { unlinkSync, writeFileSync } from 'node:fs';
 
 import { loadConfig, type TimelineChannel } from './config.js';
-import { DiscordWebhookQueue } from './discord-queue.js';
+import { DiscordWebhookQueue, QueueFullError } from './discord-queue.js';
 import { buildDiscordPayload } from './discord.js';
 import { getForwardBlockReason } from './note-filter.js';
 import { NoteDeduper } from './note-dedup.js';
@@ -75,6 +75,10 @@ function attachChannel(): void {
         console.log(`Forwarded note ${note.id} by ${note.user.username}`);
       } catch (error) {
         noteDeduper.release(note.id);
+        if (error instanceof QueueFullError) {
+          console.warn(`Dropped note ${note.id}: ${error.message}`);
+          return;
+        }
         console.error(`Failed to forward note ${note.id}:`, error);
       }
     })();
