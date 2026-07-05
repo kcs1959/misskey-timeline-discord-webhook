@@ -177,4 +177,39 @@ describe('buildDiscordPayload', () => {
       /\[photo10\.png\]\(https:\/\/misskey\.example\.com\/files\/photo10\.png\)/,
     );
   });
+
+  it('includes a reply link when the note is a reply', () => {
+    const payload = buildDiscordPayload(
+      createNote({ replyId: 'parent1', text: 'thanks' }),
+      origin,
+    );
+
+    assert.match(
+      payload.content ?? '',
+      /\*\*Reply to:\*\* https:\/\/misskey\.example\.com\/notes\/parent1/,
+    );
+  });
+
+  it('includes poll choices as text', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        text: 'Which one?',
+        poll: {
+          multiple: false,
+          choices: [
+            { text: 'A', votes: 3, isVoted: false },
+            { text: 'B', votes: 1, isVoted: false },
+            { text: 'C', votes: 0, isVoted: false },
+          ],
+          expiresAt: '2026-12-31T00:00:00.000Z',
+        },
+      }),
+      origin,
+    );
+
+    assert.match(payload.content ?? '', /\*\*Poll:\*\*/);
+    assert.match(payload.content ?? '', /1\. A \(3 votes\)/);
+    assert.match(payload.content ?? '', /2\. B \(1 votes\)/);
+    assert.match(payload.content ?? '', /Expires: 2026-12-31T00:00:00.000Z/);
+  });
 });

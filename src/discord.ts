@@ -97,6 +97,38 @@ function wrapSpoiler(text: string): string {
   return `||${text}||`;
 }
 
+function formatReplyLink(note: entities.Note, origin: string): string | null {
+  const replyId = note.replyId ?? note.reply?.id;
+  if (!replyId) {
+    return null;
+  }
+
+  return `**Reply to:** ${origin}/notes/${replyId}`;
+}
+
+function formatPoll(poll: NonNullable<entities.Note['poll']>): string {
+  const lines = ['**Poll:**'];
+
+  if (poll.multiple) {
+    lines.push('(multiple choice)');
+  }
+
+  poll.choices.forEach((choice, index) => {
+    const label = typeof choice === 'string' ? choice : choice.text;
+    const votes =
+      typeof choice === 'string' || choice.votes === undefined
+        ? ''
+        : ` (${String(choice.votes)} votes)`;
+    lines.push(`${String(index + 1)}. ${label}${votes}`);
+  });
+
+  if (poll.expiresAt) {
+    lines.push(`Expires: ${poll.expiresAt}`);
+  }
+
+  return lines.join('\n');
+}
+
 function formatQuotedNote(note: entities.Note, origin: string): string {
   const user = formatUserName(note.user);
   const lines = [`> **${user}**`];
@@ -186,6 +218,12 @@ export function buildDiscordPayload(
 ): DiscordWebhookPayload {
   const lines: string[] = [];
 
+  const replyLink = formatReplyLink(note, origin);
+  if (replyLink) {
+    lines.push(replyLink);
+    lines.push('');
+  }
+
   if (note.cw) {
     lines.push(`**CW: ${note.cw}**`);
     lines.push('');
@@ -193,6 +231,13 @@ export function buildDiscordPayload(
 
   if (note.text) {
     lines.push(note.cw ? wrapSpoiler(note.text) : note.text);
+  }
+
+  if (note.poll) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push(formatPoll(note.poll));
   }
 
   if (note.renote) {
