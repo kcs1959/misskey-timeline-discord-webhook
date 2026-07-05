@@ -1,5 +1,6 @@
 import { Stream } from 'misskey-js';
 import type { Channels, IChannelConnection } from 'misskey-js';
+import { unlinkSync, writeFileSync } from 'node:fs';
 
 import { loadConfig, type TimelineChannel } from './config.js';
 import { DiscordWebhookQueue } from './discord-queue.js';
@@ -9,6 +10,19 @@ import { NoteDeduper } from './note-dedup.js';
 const config = loadConfig();
 const discordQueue = new DiscordWebhookQueue();
 const noteDeduper = new NoteDeduper();
+const HEALTH_FILE = '/tmp/healthy';
+
+function markHealthy(): void {
+  writeFileSync(HEALTH_FILE, 'ok');
+}
+
+function markUnhealthy(): void {
+  try {
+    unlinkSync(HEALTH_FILE);
+  } catch {
+    // ignore missing health file
+  }
+}
 
 const stream = new Stream(
   config.misskeyOrigin,
@@ -56,11 +70,13 @@ function attachChannel(): void {
 
 stream.on('_connected_', () => {
   attachChannel();
+  markHealthy();
   console.log(`Connected to ${config.misskeyOrigin} (${config.timeline})`);
 });
 
 stream.on('_disconnected_', () => {
   console.warn('Disconnected from Misskey streaming API');
+  markUnhealthy();
   channel?.dispose();
   channel = undefined;
 });
@@ -68,6 +84,7 @@ stream.on('_disconnected_', () => {
 function shutdown(): void {
   void (async () => {
     console.log('Shutting down...');
+    markUnhealthy();
     channel?.dispose();
     stream.close();
     await discordQueue.drain();
