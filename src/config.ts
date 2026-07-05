@@ -15,6 +15,10 @@ export type Config = {
   withFiles: boolean;
   forwardCw: boolean;
   forwardNsfw: boolean;
+  forwardReplies: boolean;
+  dedupMax: number;
+  discordQueueMax: number;
+  discordSendIntervalMs: number;
 };
 
 function requireEnv(name: string): string {
@@ -70,6 +74,23 @@ function parseBoolean(
   return value === '1' || value.toLowerCase() === 'true';
 }
 
+function parsePositiveInt(
+  name: string,
+  value: string | undefined,
+  defaultValue: number,
+): number {
+  if (value === undefined || value === '') {
+    return defaultValue;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+
+  return parsed;
+}
+
 function parseTimeline(value: string | undefined): TimelineChannel {
   const timeline = value ?? 'localTimeline';
   const allowed: TimelineChannel[] = [
@@ -114,5 +135,17 @@ export function loadConfig(): Config {
     withFiles: parseBoolean(process.env.WITH_FILES, true),
     forwardCw: parseBoolean(process.env.FORWARD_CW, true),
     forwardNsfw: parseBoolean(process.env.FORWARD_NSFW, false),
+    forwardReplies: parseBoolean(process.env.FORWARD_REPLIES, true),
+    dedupMax: parsePositiveInt('DEDUP_MAX', process.env.DEDUP_MAX, 1000),
+    discordQueueMax: parsePositiveInt(
+      'DISCORD_QUEUE_MAX',
+      process.env.DISCORD_QUEUE_MAX,
+      500,
+    ),
+    discordSendIntervalMs: parsePositiveInt(
+      'DISCORD_SEND_INTERVAL_MS',
+      process.env.DISCORD_SEND_INTERVAL_MS,
+      2000,
+    ),
   };
 }

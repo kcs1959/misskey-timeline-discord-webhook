@@ -27,6 +27,30 @@ describe('loadConfig', () => {
 
     assert.throws(() => loadConfig(), /MISSKEY_TOKEN is required/);
   });
+
+  it('parses tuning env vars with defaults', () => {
+    process.env.MISSKEY_ORIGIN = 'https://misskey.example.com';
+    process.env.DISCORD_WEBHOOK_URL =
+      'https://discord.com/api/webhooks/1/token';
+    delete process.env.DEDUP_MAX;
+    delete process.env.DISCORD_QUEUE_MAX;
+    delete process.env.DISCORD_SEND_INTERVAL_MS;
+
+    const config = loadConfig();
+
+    assert.equal(config.dedupMax, 1000);
+    assert.equal(config.discordQueueMax, 500);
+    assert.equal(config.discordSendIntervalMs, 2000);
+  });
+
+  it('rejects invalid tuning env vars', () => {
+    process.env.MISSKEY_ORIGIN = 'https://misskey.example.com';
+    process.env.DISCORD_WEBHOOK_URL =
+      'https://discord.com/api/webhooks/1/token';
+    process.env.DEDUP_MAX = '0';
+
+    assert.throws(() => loadConfig(), /DEDUP_MAX must be a positive integer/);
+  });
 });
 
 describe('NoteDeduper', () => {
