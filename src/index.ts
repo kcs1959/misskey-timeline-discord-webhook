@@ -56,6 +56,10 @@ function attachChannel(): void {
   channel = stream.useChannel(config.timeline, channelParams);
 
   channel.on('note', (note) => {
+    if (shuttingDown) {
+      return;
+    }
+
     if (!noteDeduper.tryAcquire(note.id)) {
       console.log(`Skipping duplicate note ${note.id}`);
       return;
@@ -74,6 +78,11 @@ function attachChannel(): void {
 
     void (async () => {
       try {
+        if (shuttingDown) {
+          noteDeduper.release(note.id);
+          return;
+        }
+
         const payload = buildDiscordPayload(note, config.misskeyOrigin);
         await discordQueue.enqueue(config.discordWebhookUrl, payload);
         noteDeduper.markForwarded(note.id);
