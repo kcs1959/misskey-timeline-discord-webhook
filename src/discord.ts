@@ -25,6 +25,22 @@ function truncate(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1)}…`;
 }
 
+export function toAbsoluteUrl(
+  url: string | null | undefined,
+  origin: string,
+): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('/')) {
+    return `${origin}${url}`;
+  }
+  return url;
+}
+
 function formatUserName(user: entities.UserLite): string {
   return acct.toString(user);
 }
@@ -49,19 +65,23 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
   return lines.join('\n');
 }
 
-function collectEmbeds(note: entities.Note): DiscordEmbed[] {
+function collectEmbeds(note: entities.Note, origin: string): DiscordEmbed[] {
   const embeds: DiscordEmbed[] = [];
 
   for (const file of note.files ?? []) {
     if (embeds.length >= DISCORD_EMBED_LIMIT) {
       break;
     }
+    const fileUrl = toAbsoluteUrl(file.url, origin);
+    if (!fileUrl) {
+      continue;
+    }
     if (file.type.startsWith('image/')) {
-      embeds.push({ image: { url: file.url } });
+      embeds.push({ image: { url: fileUrl } });
     } else {
       embeds.push({
         title: file.name,
-        url: file.url,
+        url: fileUrl,
       });
     }
   }
@@ -95,12 +115,12 @@ export function buildDiscordPayload(
   lines.push(`${origin}/notes/${note.id}`);
 
   const content = truncate(lines.join('\n').trim(), DISCORD_CONTENT_LIMIT);
-  const embeds = collectEmbeds(note);
+  const embeds = collectEmbeds(note, origin);
 
   return {
     content: content || undefined,
     username: note.user.name || note.user.username,
-    avatar_url: note.user.avatarUrl || undefined,
+    avatar_url: toAbsoluteUrl(note.user.avatarUrl, origin),
     embeds: embeds.length > 0 ? embeds : undefined,
     allowed_mentions: { parse: [] },
   };
