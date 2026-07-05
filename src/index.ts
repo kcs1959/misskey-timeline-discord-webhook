@@ -12,6 +12,7 @@ const config = loadConfig();
 const discordQueue = new DiscordWebhookQueue();
 const noteDeduper = new NoteDeduper();
 const HEALTH_FILE = '/tmp/healthy';
+let shuttingDown = false;
 
 function markHealthy(): void {
   writeFileSync(HEALTH_FILE, 'ok');
@@ -99,6 +100,11 @@ stream.on('_disconnected_', () => {
 });
 
 function shutdown(): void {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+
   void (async () => {
     console.log('Shutting down...');
     markUnhealthy();
