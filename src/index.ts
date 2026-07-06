@@ -34,16 +34,17 @@ const stream = new Stream(
   config.misskeyToken ? { token: config.misskeyToken } : null,
 );
 
+// Misskey's channel param `withFiles` means "only notes with attached
+// files", so it is never sent here; WITH_FILES instead controls whether
+// attachments are included in the Discord payload.
 const channelParams =
   config.timeline === 'localTimeline' || config.timeline === 'hybridTimeline'
     ? {
         withRenotes: config.withRenotes,
         withReplies: config.withReplies,
-        withFiles: config.withFiles,
       }
     : {
         withRenotes: config.withRenotes,
-        withFiles: config.withFiles,
       };
 
 let channel: IChannelConnection<Channels[TimelineChannel]> | undefined;
@@ -100,7 +101,9 @@ function attachChannel(): void {
           return;
         }
 
-        const payload = buildDiscordPayload(note, config.misskeyOrigin);
+        const payload = buildDiscordPayload(note, config.misskeyOrigin, {
+          withFiles: config.withFiles,
+        });
         await discordQueue.enqueue(config.discordWebhookUrl, payload);
         noteDeduper.markForwarded(note.id);
         console.log(`Forwarded note ${note.id} by ${note.user.username}`);

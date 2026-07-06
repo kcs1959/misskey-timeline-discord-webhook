@@ -287,7 +287,9 @@ function enforceEmbedLimits(
 export function buildDiscordPayload(
   note: entities.Note,
   origin: string,
+  options: { withFiles?: boolean } = {},
 ): DiscordWebhookPayload {
+  const withFiles = options.withFiles ?? true;
   const lines: string[] = [];
 
   const replyLink = formatReplyLink(note, origin);
@@ -323,7 +325,9 @@ export function buildDiscordPayload(
     embeds: rawEmbeds,
     sensitiveLines,
     overflowLines,
-  } = collectMedia(note, origin);
+  } = withFiles
+    ? collectMedia(note, origin)
+    : { embeds: [], sensitiveLines: [], overflowLines: [] };
   const embeds = enforceEmbedLimits(rawEmbeds, overflowLines);
   if (sensitiveLines.length > 0) {
     if (lines.length > 0) {

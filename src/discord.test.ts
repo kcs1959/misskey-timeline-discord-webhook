@@ -178,6 +178,21 @@ describe('buildDiscordPayload', () => {
     );
   });
 
+  it('omits attachments when withFiles is false', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        text: 'hello',
+        files: [createFile(), createFile({ id: 'file2', isSensitive: true })],
+      }),
+      origin,
+      { withFiles: false },
+    );
+
+    assert.equal(payload.embeds, undefined);
+    assert.doesNotMatch(payload.content ?? '', /Sensitive media|Attachments/);
+    assert.match(payload.content ?? '', /hello/);
+  });
+
   it('includes a reply link when the note is a reply', () => {
     const payload = buildDiscordPayload(
       createNote({ replyId: 'parent1', text: 'thanks' }),
