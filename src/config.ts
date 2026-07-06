@@ -11,6 +11,7 @@ export type Config = {
   withRenotes: boolean;
   withReplies: boolean;
   withFiles: boolean;
+  includeAttachments: boolean;
   forwardCw: boolean;
   forwardNsfw: boolean;
   forwardReplies: boolean;
@@ -132,7 +133,8 @@ export function loadConfig(): Config {
     timeline,
     withRenotes: parseBoolean(process.env.WITH_RENOTES, true),
     withReplies: parseBoolean(process.env.WITH_REPLIES, true),
-    withFiles: parseBoolean(process.env.WITH_FILES, true),
+    withFiles: parseBoolean(process.env.WITH_FILES, false),
+    includeAttachments: parseBoolean(process.env.INCLUDE_ATTACHMENTS, true),
     forwardCw: parseBoolean(process.env.FORWARD_CW, true),
     forwardNsfw: parseBoolean(process.env.FORWARD_NSFW, false),
     forwardReplies: parseBoolean(process.env.FORWARD_REPLIES, true),

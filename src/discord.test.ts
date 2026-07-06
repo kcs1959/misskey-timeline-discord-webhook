@@ -178,14 +178,14 @@ describe('buildDiscordPayload', () => {
     );
   });
 
-  it('omits attachments when withFiles is false', () => {
+  it('omits attachments when includeAttachments is false', () => {
     const payload = buildDiscordPayload(
       createNote({
         text: 'hello',
         files: [createFile(), createFile({ id: 'file2', isSensitive: true })],
       }),
       origin,
-      { withFiles: false },
+      { includeAttachments: false },
     );
 
     assert.equal(payload.embeds, undefined);
