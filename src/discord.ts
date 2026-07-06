@@ -405,10 +405,7 @@ export function buildDiscordPayload(
     description: description || undefined,
     timestamp: note.createdAt,
     color: NOTE_EMBED_COLOR,
-    footer: {
-      text: new URL(origin).hostname,
-      icon_url: toAbsoluteUrl('/favicon.ico', origin),
-    },
+    footer: { text: new URL(origin).hostname },
     image: mainImageUrl ? { url: mainImageUrl } : undefined,
   };
 

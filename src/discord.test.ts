@@ -86,10 +86,6 @@ describe('buildDiscordPayload', () => {
     assert.equal(embed?.title, 'Display Name (@alice)');
     assert.equal(embed?.timestamp, '2026-01-01T00:00:00.000Z');
     assert.equal(embed?.footer?.text, 'misskey.example.com');
-    assert.equal(
-      embed?.footer?.icon_url,
-      'https://misskey.example.com/favicon.ico',
-    );
   });
 
   it('wraps CW note text in Discord spoilers', () => {
