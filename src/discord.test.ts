@@ -76,8 +76,8 @@ describe('buildDiscordPayload', () => {
     const payload = buildDiscordPayload(createNote(), origin);
 
     assert.equal(payload.content, undefined);
-    assert.equal(payload.username, undefined);
-    assert.equal(payload.avatar_url, undefined);
+    assert.equal(payload.username, 'Display Name');
+    assert.equal(payload.avatar_url, 'https://misskey.example.com/avatar.png');
     assert.deepEqual(payload.allowed_mentions, { parse: [] });
 
     const embed = mainEmbed(payload);
@@ -266,6 +266,18 @@ describe('buildDiscordPayload', () => {
 
     assert.equal(mainEmbed(payload)?.author?.name.length, 256);
     assert.match(mainEmbed(payload)?.author?.name ?? '', /…$/);
+  });
+
+  it('truncates long webhook usernames', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        user: createUser({ name: 'n'.repeat(100) }),
+      }),
+      origin,
+    );
+
+    assert.equal(payload.username?.length, 80);
+    assert.match(payload.username ?? '', /…$/);
   });
 
   it('truncates long embed titles', () => {
