@@ -2,7 +2,6 @@ import { acct, entities } from 'misskey-js';
 
 const DISCORD_EMBED_LIMIT = 10;
 const DISCORD_FETCH_TIMEOUT_MS = 30_000;
-const DISCORD_USERNAME_LIMIT = 80;
 const DISCORD_EMBED_TITLE_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
@@ -15,6 +14,7 @@ type DiscordEmbed = {
   url?: string;
   timestamp?: string;
   color?: number;
+  author?: { name: string; icon_url?: string; url?: string };
   image?: { url: string };
 };
 
@@ -108,6 +108,10 @@ export function toAbsoluteUrl(
 
 function formatUserName(user: entities.UserLite): string {
   return acct.toString(user);
+}
+
+function formatProfileUrl(user: entities.UserLite, origin: string): string {
+  return `${origin}/@${acct.toString(user)}`;
 }
 
 function wrapSpoiler(text: string): string {
@@ -264,6 +268,9 @@ function embedCharCount(embed: DiscordEmbed): number {
   if (embed.image?.url) {
     count += embed.image.url.length;
   }
+  if (embed.author?.name) {
+    count += embed.author.name.length;
+  }
   return count;
 }
 
@@ -317,6 +324,7 @@ export function buildDiscordPayload(
 ): DiscordWebhookPayload {
   const includeAttachments = options.includeAttachments ?? true;
   const noteUrl = `${origin}/notes/${note.id}`;
+  const authorName = note.user.name || note.user.username;
   const lines: string[] = [];
 
   const replyLink = formatReplyLink(note, origin);
@@ -364,7 +372,8 @@ export function buildDiscordPayload(
     DISCORD_EMBED_TOTAL_CHARS -
       DISCORD_EMBED_DESCRIPTION_LIMIT -
       NOTE_EMBED_TITLE.length -
-      noteUrl.length,
+      noteUrl.length -
+      authorName.length,
   );
   const extraEmbeds = enforceEmbedLimits(
     rawEmbeds,
@@ -398,15 +407,15 @@ export function buildDiscordPayload(
     url: noteUrl,
     timestamp: note.createdAt,
     color: NOTE_EMBED_COLOR,
+    author: {
+      name: truncatePlain(authorName, DISCORD_EMBED_TITLE_LIMIT),
+      icon_url: toAbsoluteUrl(note.user.avatarUrl, origin),
+      url: formatProfileUrl(note.user, origin),
+    },
     image: mainImageUrl ? { url: mainImageUrl } : undefined,
   };
 
   return {
-    username: truncatePlain(
-      note.user.name || note.user.username,
-      DISCORD_USERNAME_LIMIT,
-    ),
-    avatar_url: toAbsoluteUrl(note.user.avatarUrl, origin),
     embeds: [mainEmbed, ...extraEmbeds],
     allowed_mentions: { parse: [] },
   };

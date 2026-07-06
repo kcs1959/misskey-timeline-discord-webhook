@@ -76,8 +76,8 @@ describe('buildDiscordPayload', () => {
     const payload = buildDiscordPayload(createNote(), origin);
 
     assert.equal(payload.content, undefined);
-    assert.equal(payload.username, 'Display Name');
-    assert.equal(payload.avatar_url, 'https://misskey.example.com/avatar.png');
+    assert.equal(payload.username, undefined);
+    assert.equal(payload.avatar_url, undefined);
     assert.deepEqual(payload.allowed_mentions, { parse: [] });
 
     const embed = mainEmbed(payload);
@@ -85,6 +85,12 @@ describe('buildDiscordPayload', () => {
     assert.equal(embed?.url, 'https://misskey.example.com/notes/note1');
     assert.equal(embed?.title, 'Misskeyで見る');
     assert.equal(embed?.timestamp, '2026-01-01T00:00:00.000Z');
+    assert.equal(embed?.author?.name, 'Display Name');
+    assert.equal(
+      embed?.author?.icon_url,
+      'https://misskey.example.com/avatar.png',
+    );
+    assert.equal(embed?.author?.url, 'https://misskey.example.com/@alice');
   });
 
   it('wraps CW note text in Discord spoilers', () => {
@@ -250,16 +256,16 @@ describe('buildDiscordPayload', () => {
     );
   });
 
-  it('truncates long webhook usernames', () => {
+  it('truncates long embed author names', () => {
     const payload = buildDiscordPayload(
       createNote({
-        user: createUser({ name: 'n'.repeat(100) }),
+        user: createUser({ name: 'n'.repeat(300) }),
       }),
       origin,
     );
 
-    assert.equal(payload.username?.length, 80);
-    assert.match(payload.username ?? '', /…$/);
+    assert.equal(mainEmbed(payload)?.author?.name.length, 256);
+    assert.match(mainEmbed(payload)?.author?.name ?? '', /…$/);
   });
 
   it('truncates long embed titles', () => {
@@ -319,13 +325,27 @@ describe('buildDiscordPayload', () => {
     assert.match(description, /Expires: 2026-12-31T00:00:00.000Z/);
   });
 
-  it('always links the main embed title to the note permalink', () => {
+  it('links the embed author to a remote profile when the user is remote', () => {
     const payload = buildDiscordPayload(
       createNote({
-        user: createUser({ username: 'bob', host: 'remote.example' }),
+        user: createUser({
+          name: '',
+          username: 'bob',
+          host: 'remote.example',
+        }),
       }),
       origin,
     );
+
+    assert.equal(mainEmbed(payload)?.author?.name, 'bob');
+    assert.equal(
+      mainEmbed(payload)?.author?.url,
+      'https://misskey.example.com/@bob@remote.example',
+    );
+  });
+
+  it('always links the main embed title to the note permalink', () => {
+    const payload = buildDiscordPayload(createNote(), origin);
 
     assert.equal(mainEmbed(payload)?.title, 'Misskeyで見る');
     assert.equal(
