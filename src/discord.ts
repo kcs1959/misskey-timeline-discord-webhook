@@ -7,7 +7,6 @@ const DISCORD_EMBED_TITLE_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
 const NOTE_EMBED_COLOR = 0x86b300;
-const NOTE_EMBED_TITLE = 'Misskeyで見る';
 
 type DiscordEmbed = {
   title?: string;
@@ -15,7 +14,7 @@ type DiscordEmbed = {
   url?: string;
   timestamp?: string;
   color?: number;
-  author?: { name: string; icon_url?: string; url?: string };
+  footer?: { text: string; icon_url?: string };
   image?: { url: string };
 };
 
@@ -109,10 +108,6 @@ export function toAbsoluteUrl(
 
 function formatUserName(user: entities.UserLite): string {
   return acct.toString(user);
-}
-
-function formatProfileUrl(user: entities.UserLite, origin: string): string {
-  return `${origin}/@${acct.toString(user)}`;
 }
 
 function wrapSpoiler(text: string): string {
@@ -269,8 +264,8 @@ function embedCharCount(embed: DiscordEmbed): number {
   if (embed.image?.url) {
     count += embed.image.url.length;
   }
-  if (embed.author?.name) {
-    count += embed.author.name.length;
+  if (embed.footer?.text) {
+    count += embed.footer.text.length;
   }
   return count;
 }
@@ -372,9 +367,8 @@ export function buildDiscordPayload(
     0,
     DISCORD_EMBED_TOTAL_CHARS -
       DISCORD_EMBED_DESCRIPTION_LIMIT -
-      NOTE_EMBED_TITLE.length -
-      noteUrl.length -
-      authorName.length,
+      DISCORD_EMBED_TITLE_LIMIT -
+      noteUrl.length,
   );
   const extraEmbeds = enforceEmbedLimits(
     rawEmbeds,
@@ -403,15 +397,17 @@ export function buildDiscordPayload(
   );
 
   const mainEmbed: DiscordEmbed = {
-    title: NOTE_EMBED_TITLE,
-    description: description || undefined,
+    title: truncatePlain(
+      `${authorName} (@${formatUserName(note.user)})`,
+      DISCORD_EMBED_TITLE_LIMIT,
+    ),
     url: noteUrl,
+    description: description || undefined,
     timestamp: note.createdAt,
     color: NOTE_EMBED_COLOR,
-    author: {
-      name: truncatePlain(authorName, DISCORD_EMBED_TITLE_LIMIT),
-      icon_url: toAbsoluteUrl(note.user.avatarUrl, origin),
-      url: formatProfileUrl(note.user, origin),
+    footer: {
+      text: new URL(origin).hostname,
+      icon_url: toAbsoluteUrl('/favicon.ico', origin),
     },
     image: mainImageUrl ? { url: mainImageUrl } : undefined,
   };
