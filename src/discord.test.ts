@@ -14,7 +14,7 @@ function createUser(
     id: 'user1',
     name: 'Display Name',
     username: 'alice',
-    host: 'misskey.example.com',
+    host: null,
     avatarUrl: '/avatar.png',
     ...overrides,
   } as entities.UserLite;
@@ -38,11 +38,16 @@ function createNote(overrides: Partial<entities.Note> = {}): entities.Note {
     id: 'note1',
     text: 'Hello',
     cw: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
     user: createUser(),
     files: [],
     renote: null,
     ...overrides,
   } as entities.Note;
+}
+
+function mainEmbed(payload: ReturnType<typeof buildDiscordPayload>) {
+  return payload.embeds?.[0];
 }
 
 describe('toAbsoluteUrl', () => {
@@ -67,17 +72,20 @@ describe('toAbsoluteUrl', () => {
 });
 
 describe('buildDiscordPayload', () => {
-  it('builds a basic text note payload', () => {
+  it('builds a basic text note payload as a rich embed', () => {
     const payload = buildDiscordPayload(createNote(), origin);
 
+    assert.equal(payload.content, undefined);
     assert.equal(payload.username, 'Display Name');
     assert.equal(payload.avatar_url, 'https://misskey.example.com/avatar.png');
-    assert.match(payload.content ?? '', /Hello/);
-    assert.match(
-      payload.content ?? '',
-      /https:\/\/misskey\.example\.com\/notes\/note1/,
-    );
     assert.deepEqual(payload.allowed_mentions, { parse: [] });
+
+    const embed = mainEmbed(payload);
+    assert.match(embed?.description ?? '', /Hello/);
+    assert.equal(embed?.url, 'https://misskey.example.com/notes/note1');
+    assert.equal(embed?.title, 'Display Name (@alice)');
+    assert.equal(embed?.timestamp, '2026-01-01T00:00:00.000Z');
+    assert.equal(embed?.footer?.text, 'misskey.example.com');
   });
 
   it('wraps CW note text in Discord spoilers', () => {
@@ -86,11 +94,12 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.match(payload.content ?? '', /\*\*CW: warning\*\*/);
-    assert.match(payload.content ?? '', /\|\|hidden text\|\|/);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /\*\*CW: warning\*\*/);
+    assert.match(description, /\|\|hidden text\|\|/);
   });
 
-  it('includes image embeds with absolute URLs', () => {
+  it('includes the first image as the main embed image', () => {
     const payload = buildDiscordPayload(
       createNote({ files: [createFile()] }),
       origin,
@@ -98,8 +107,38 @@ describe('buildDiscordPayload', () => {
 
     assert.equal(payload.embeds?.length, 1);
     assert.equal(
-      payload.embeds?.[0]?.image?.url,
+      mainEmbed(payload)?.image?.url,
       'https://misskey.example.com/files/photo.png',
+    );
+  });
+
+  it('groups additional images into gallery embeds sharing the note URL', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        files: [
+          createFile(),
+          createFile({
+            id: 'file2',
+            name: 'photo2.png',
+            url: '/files/photo2.png',
+          }),
+        ],
+      }),
+      origin,
+    );
+
+    assert.equal(payload.embeds?.length, 2);
+    assert.equal(
+      mainEmbed(payload)?.image?.url,
+      'https://misskey.example.com/files/photo.png',
+    );
+    assert.equal(
+      payload.embeds?.[1]?.image?.url,
+      'https://misskey.example.com/files/photo2.png',
+    );
+    assert.equal(
+      payload.embeds?.[1]?.url,
+      'https://misskey.example.com/notes/note1',
     );
   });
 
@@ -118,10 +157,10 @@ describe('buildDiscordPayload', () => {
 
     assert.equal(payload.embeds?.length, 1);
     assert.equal(
-      payload.embeds?.[0]?.image?.url,
+      mainEmbed(payload)?.image?.url,
       'https://misskey.example.com/files/renote.jpg',
     );
-    assert.match(payload.content ?? '', /original/);
+    assert.match(mainEmbed(payload)?.description ?? '', /original/);
   });
 
   it('renders sensitive images as spoiler links instead of embeds', () => {
@@ -130,34 +169,37 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.equal(payload.embeds, undefined);
-    assert.match(payload.content ?? '', /\*\*Sensitive media:\*\*/);
+    assert.equal(payload.embeds?.length, 1);
+    assert.equal(mainEmbed(payload)?.image, undefined);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /\*\*Sensitive media:\*\*/);
     assert.match(
-      payload.content ?? '',
+      description,
       /\|\|\[Sensitive image\]\(https:\/\/misskey\.example\.com\/files\/photo\.png\)\|\|/,
     );
   });
 
-  it('truncates content longer than the Discord limit', () => {
+  it('truncates the embed description longer than the Discord limit', () => {
     const payload = buildDiscordPayload(
-      createNote({ text: 'a'.repeat(2500) }),
+      createNote({ text: 'a'.repeat(5000) }),
       origin,
     );
 
-    assert.equal(payload.content?.length, 2000);
-    assert.match(payload.content ?? '', /…$/);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.equal(description.length, 4096);
+    assert.match(description, /…$/);
   });
 
   it('closes unclosed spoiler markers when truncating', () => {
     const payload = buildDiscordPayload(
-      createNote({ cw: 'warning', text: 'x'.repeat(2500) }),
+      createNote({ cw: 'warning', text: 'x'.repeat(5000) }),
       origin,
     );
 
-    const content = payload.content ?? '';
-    const spoilerCount = (content.match(/\|\|/g) ?? []).length;
+    const description = mainEmbed(payload)?.description ?? '';
+    const spoilerCount = (description.match(/\|\|/g) ?? []).length;
     assert.equal(spoilerCount % 2, 0);
-    assert.equal(content.length, 2000);
+    assert.equal(description.length, 4096);
   });
 
   it('adds overflow attachments as links', () => {
@@ -170,10 +212,12 @@ describe('buildDiscordPayload', () => {
     );
     const payload = buildDiscordPayload(createNote({ files }), origin);
 
+    // 1 main embed image + 9 gallery embeds (10 embed cap) = 10 total.
     assert.equal(payload.embeds?.length, 10);
-    assert.match(payload.content ?? '', /\*\*Attachments:\*\*/);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /\*\*Attachments:\*\*/);
     assert.match(
-      payload.content ?? '',
+      description,
       /\[photo10\.png\]\(https:\/\/misskey\.example\.com\/files\/photo10\.png\)/,
     );
   });
@@ -188,9 +232,11 @@ describe('buildDiscordPayload', () => {
       { includeAttachments: false },
     );
 
-    assert.equal(payload.embeds, undefined);
-    assert.doesNotMatch(payload.content ?? '', /Sensitive media|Attachments/);
-    assert.match(payload.content ?? '', /hello/);
+    assert.equal(payload.embeds?.length, 1);
+    assert.equal(mainEmbed(payload)?.image, undefined);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.doesNotMatch(description, /Sensitive media|Attachments/);
+    assert.match(description, /hello/);
   });
 
   it('includes a reply link when the note is a reply', () => {
@@ -200,9 +246,21 @@ describe('buildDiscordPayload', () => {
     );
 
     assert.match(
-      payload.content ?? '',
+      mainEmbed(payload)?.description ?? '',
       /\*\*Reply to:\*\* https:\/\/misskey\.example\.com\/notes\/parent1/,
     );
+  });
+
+  it('truncates long main embed titles', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        user: createUser({ name: 'n'.repeat(300) }),
+      }),
+      origin,
+    );
+
+    assert.equal(mainEmbed(payload)?.title?.length, 256);
+    assert.match(mainEmbed(payload)?.title ?? '', /…$/);
   });
 
   it('truncates long webhook usernames', () => {
@@ -231,22 +289,23 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.equal(payload.embeds?.[0]?.title?.length, 256);
-    assert.match(payload.embeds?.[0]?.title ?? '', /…$/);
+    assert.equal(payload.embeds?.[1]?.title?.length, 256);
+    assert.match(payload.embeds?.[1]?.title ?? '', /…$/);
   });
 
   it('moves oversized embeds to attachment links', () => {
     const longUrl = `${origin}/files/${'a'.repeat(7000)}.png`;
     const payload = buildDiscordPayload(
       createNote({
-        files: [createFile({ url: longUrl })],
+        files: [createFile(), createFile({ id: 'file2', url: longUrl })],
       }),
       origin,
     );
 
-    assert.equal(payload.embeds, undefined);
-    assert.match(payload.content ?? '', /\*\*Attachments:\*\*/);
-    assert.match(payload.content ?? '', /\[Image\]\(/);
+    assert.equal(payload.embeds?.length, 1);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /\*\*Attachments:\*\*/);
+    assert.match(description, /\[Image\]\(/);
   });
 
   it('includes poll choices as text', () => {
@@ -266,9 +325,35 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.match(payload.content ?? '', /\*\*Poll:\*\*/);
-    assert.match(payload.content ?? '', /1\. A \(3 votes\)/);
-    assert.match(payload.content ?? '', /2\. B \(1 votes\)/);
-    assert.match(payload.content ?? '', /Expires: 2026-12-31T00:00:00.000Z/);
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /\*\*Poll:\*\*/);
+    assert.match(description, /1\. A \(3 votes\)/);
+    assert.match(description, /2\. B \(1 votes\)/);
+    assert.match(description, /Expires: 2026-12-31T00:00:00.000Z/);
+  });
+
+  it('includes the full acct handle in the title for remote users', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        user: createUser({
+          name: '',
+          username: 'bob',
+          host: 'remote.example',
+        }),
+      }),
+      origin,
+    );
+
+    assert.equal(mainEmbed(payload)?.title, 'bob (@bob@remote.example)');
+  });
+
+  it('always links the main embed title to the note permalink', () => {
+    const payload = buildDiscordPayload(createNote(), origin);
+
+    assert.equal(mainEmbed(payload)?.title, 'Display Name (@alice)');
+    assert.equal(
+      mainEmbed(payload)?.url,
+      'https://misskey.example.com/notes/note1',
+    );
   });
 });

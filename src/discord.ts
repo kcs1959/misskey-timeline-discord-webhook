@@ -1,16 +1,20 @@
 import { acct, entities } from 'misskey-js';
 
-const DISCORD_CONTENT_LIMIT = 2000;
 const DISCORD_EMBED_LIMIT = 10;
 const DISCORD_FETCH_TIMEOUT_MS = 30_000;
 const DISCORD_USERNAME_LIMIT = 80;
 const DISCORD_EMBED_TITLE_LIMIT = 256;
+const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
+const NOTE_EMBED_COLOR = 0x86b300;
 
 type DiscordEmbed = {
   title?: string;
   description?: string;
   url?: string;
+  timestamp?: string;
+  color?: number;
+  footer?: { text: string; icon_url?: string };
   image?: { url: string };
 };
 
@@ -168,6 +172,8 @@ function appendFileContent(
   overflowLines: string[],
   files: entities.DriveFile[] | undefined,
   origin: string,
+  noteUrl: string,
+  mainImage: { url: string | null },
 ): void {
   for (const file of files ?? []) {
     const fileUrl = toAbsoluteUrl(file.url, origin);
@@ -183,13 +189,19 @@ function appendFileContent(
       continue;
     }
 
-    if (embeds.length >= DISCORD_EMBED_LIMIT) {
+    if (file.type.startsWith('image/') && !mainImage.url) {
+      mainImage.url = fileUrl;
+      continue;
+    }
+
+    if (embeds.length >= DISCORD_EMBED_LIMIT - 1) {
       overflowLines.push(`[${file.name}](${fileUrl})`);
       continue;
     }
 
     if (file.type.startsWith('image/')) {
-      embeds.push({ image: { url: fileUrl } });
+      // Sharing the note URL groups these into one gallery alongside the main embed.
+      embeds.push({ url: noteUrl, image: { url: fileUrl } });
     } else {
       embeds.push({
         title: file.name,
@@ -202,7 +214,9 @@ function appendFileContent(
 function collectMedia(
   note: entities.Note,
   origin: string,
+  noteUrl: string,
 ): {
+  mainImageUrl: string | null;
   embeds: DiscordEmbed[];
   sensitiveLines: string[];
   overflowLines: string[];
@@ -210,8 +224,17 @@ function collectMedia(
   const embeds: DiscordEmbed[] = [];
   const sensitiveLines: string[] = [];
   const overflowLines: string[] = [];
+  const mainImage: { url: string | null } = { url: null };
 
-  appendFileContent(embeds, sensitiveLines, overflowLines, note.files, origin);
+  appendFileContent(
+    embeds,
+    sensitiveLines,
+    overflowLines,
+    note.files,
+    origin,
+    noteUrl,
+    mainImage,
+  );
   if (note.renote) {
     appendFileContent(
       embeds,
@@ -219,10 +242,12 @@ function collectMedia(
       overflowLines,
       note.renote.files,
       origin,
+      noteUrl,
+      mainImage,
     );
   }
 
-  return { embeds, sensitiveLines, overflowLines };
+  return { mainImageUrl: mainImage.url, embeds, sensitiveLines, overflowLines };
 }
 
 function embedCharCount(embed: DiscordEmbed): number {
@@ -239,11 +264,14 @@ function embedCharCount(embed: DiscordEmbed): number {
   if (embed.image?.url) {
     count += embed.image.url.length;
   }
+  if (embed.footer?.text) {
+    count += embed.footer.text.length;
+  }
   return count;
 }
 
 function embedToLink(embed: DiscordEmbed): string | null {
-  const url = embed.url ?? embed.image?.url;
+  const url = embed.image?.url ?? embed.url;
   if (!url) {
     return null;
   }
@@ -255,6 +283,7 @@ function embedToLink(embed: DiscordEmbed): string | null {
 function enforceEmbedLimits(
   embeds: DiscordEmbed[],
   overflowLines: string[],
+  totalCharBudget: number = DISCORD_EMBED_TOTAL_CHARS,
 ): DiscordEmbed[] {
   const limited = embeds.map((embed) => ({
     ...embed,
@@ -267,7 +296,7 @@ function enforceEmbedLimits(
     (sum, embed) => sum + embedCharCount(embed),
     0,
   );
-  while (totalChars > DISCORD_EMBED_TOTAL_CHARS && limited.length > 0) {
+  while (totalChars > totalCharBudget && limited.length > 0) {
     const removed = limited.pop();
     if (!removed) {
       break;
@@ -290,6 +319,8 @@ export function buildDiscordPayload(
   options: { includeAttachments?: boolean } = {},
 ): DiscordWebhookPayload {
   const includeAttachments = options.includeAttachments ?? true;
+  const noteUrl = `${origin}/notes/${note.id}`;
+  const authorName = note.user.name || note.user.username;
   const lines: string[] = [];
 
   const replyLink = formatReplyLink(note, origin);
@@ -322,13 +353,29 @@ export function buildDiscordPayload(
   }
 
   const {
+    mainImageUrl,
     embeds: rawEmbeds,
     sensitiveLines,
     overflowLines,
   } = includeAttachments
-    ? collectMedia(note, origin)
-    : { embeds: [], sensitiveLines: [], overflowLines: [] };
-  const embeds = enforceEmbedLimits(rawEmbeds, overflowLines);
+    ? collectMedia(note, origin, noteUrl)
+    : { mainImageUrl: null, embeds: [], sensitiveLines: [], overflowLines: [] };
+
+  // Reserve worst-case room for the main embed's own fields so the combined
+  // embeds array never exceeds Discord's 6000-char total budget.
+  const extraEmbedBudget = Math.max(
+    0,
+    DISCORD_EMBED_TOTAL_CHARS -
+      DISCORD_EMBED_DESCRIPTION_LIMIT -
+      DISCORD_EMBED_TITLE_LIMIT -
+      noteUrl.length,
+  );
+  const extraEmbeds = enforceEmbedLimits(
+    rawEmbeds,
+    overflowLines,
+    extraEmbedBudget,
+  );
+
   if (sensitiveLines.length > 0) {
     if (lines.length > 0) {
       lines.push('');
@@ -344,19 +391,28 @@ export function buildDiscordPayload(
     lines.push(...overflowLines);
   }
 
-  lines.push('');
-  lines.push(`${origin}/notes/${note.id}`);
+  const description = truncate(
+    lines.join('\n').trim(),
+    DISCORD_EMBED_DESCRIPTION_LIMIT,
+  );
 
-  const content = truncate(lines.join('\n').trim(), DISCORD_CONTENT_LIMIT);
+  const mainEmbed: DiscordEmbed = {
+    title: truncatePlain(
+      `${authorName} (@${formatUserName(note.user)})`,
+      DISCORD_EMBED_TITLE_LIMIT,
+    ),
+    url: noteUrl,
+    description: description || undefined,
+    timestamp: note.createdAt,
+    color: NOTE_EMBED_COLOR,
+    footer: { text: new URL(origin).hostname },
+    image: mainImageUrl ? { url: mainImageUrl } : undefined,
+  };
 
   return {
-    content: content || undefined,
-    username: truncatePlain(
-      note.user.name || note.user.username,
-      DISCORD_USERNAME_LIMIT,
-    ),
+    username: truncatePlain(authorName, DISCORD_USERNAME_LIMIT),
     avatar_url: toAbsoluteUrl(note.user.avatarUrl, origin),
-    embeds: embeds.length > 0 ? embeds : undefined,
+    embeds: [mainEmbed, ...extraEmbeds],
     allowed_mentions: { parse: [] },
   };
 }
