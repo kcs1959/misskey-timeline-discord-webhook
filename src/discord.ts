@@ -7,6 +7,7 @@ const DISCORD_EMBED_TITLE_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
 const NOTE_EMBED_COLOR = 0x86b300;
+const NOTE_EMBED_TITLE = 'Misskeyで見る';
 
 type DiscordEmbed = {
   title?: string;
@@ -14,7 +15,6 @@ type DiscordEmbed = {
   url?: string;
   timestamp?: string;
   color?: number;
-  author?: { name: string; icon_url?: string; url?: string };
   image?: { url: string };
 };
 
@@ -108,10 +108,6 @@ export function toAbsoluteUrl(
 
 function formatUserName(user: entities.UserLite): string {
   return acct.toString(user);
-}
-
-function formatProfileUrl(user: entities.UserLite, origin: string): string {
-  return `${origin}/@${acct.toString(user)}`;
 }
 
 function wrapSpoiler(text: string): string {
@@ -268,9 +264,6 @@ function embedCharCount(embed: DiscordEmbed): number {
   if (embed.image?.url) {
     count += embed.image.url.length;
   }
-  if (embed.author?.name) {
-    count += embed.author.name.length;
-  }
   return count;
 }
 
@@ -324,7 +317,6 @@ export function buildDiscordPayload(
 ): DiscordWebhookPayload {
   const includeAttachments = options.includeAttachments ?? true;
   const noteUrl = `${origin}/notes/${note.id}`;
-  const authorName = formatUserName(note.user);
   const lines: string[] = [];
 
   const replyLink = formatReplyLink(note, origin);
@@ -371,7 +363,7 @@ export function buildDiscordPayload(
     0,
     DISCORD_EMBED_TOTAL_CHARS -
       DISCORD_EMBED_DESCRIPTION_LIMIT -
-      authorName.length -
+      NOTE_EMBED_TITLE.length -
       noteUrl.length,
   );
   const extraEmbeds = enforceEmbedLimits(
@@ -401,11 +393,7 @@ export function buildDiscordPayload(
   );
 
   const mainEmbed: DiscordEmbed = {
-    author: {
-      name: authorName,
-      icon_url: toAbsoluteUrl(note.user.avatarUrl, origin),
-      url: formatProfileUrl(note.user, origin),
-    },
+    title: NOTE_EMBED_TITLE,
     description: description || undefined,
     url: noteUrl,
     timestamp: note.createdAt,

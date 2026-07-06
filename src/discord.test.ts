@@ -83,13 +83,8 @@ describe('buildDiscordPayload', () => {
     const embed = mainEmbed(payload);
     assert.match(embed?.description ?? '', /Hello/);
     assert.equal(embed?.url, 'https://misskey.example.com/notes/note1');
+    assert.equal(embed?.title, 'Misskeyで見る');
     assert.equal(embed?.timestamp, '2026-01-01T00:00:00.000Z');
-    assert.equal(embed?.author?.name, 'alice');
-    assert.equal(
-      embed?.author?.icon_url,
-      'https://misskey.example.com/avatar.png',
-    );
-    assert.equal(embed?.author?.url, 'https://misskey.example.com/@alice');
   });
 
   it('wraps CW note text in Discord spoilers', () => {
@@ -324,7 +319,7 @@ describe('buildDiscordPayload', () => {
     assert.match(description, /Expires: 2026-12-31T00:00:00.000Z/);
   });
 
-  it('links the author name to a remote profile when the user is remote', () => {
+  it('always links the main embed title to the note permalink', () => {
     const payload = buildDiscordPayload(
       createNote({
         user: createUser({ username: 'bob', host: 'remote.example' }),
@@ -332,10 +327,10 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.equal(mainEmbed(payload)?.author?.name, 'bob@remote.example');
+    assert.equal(mainEmbed(payload)?.title, 'Misskeyで見る');
     assert.equal(
-      mainEmbed(payload)?.author?.url,
-      'https://misskey.example.com/@bob@remote.example',
+      mainEmbed(payload)?.url,
+      'https://misskey.example.com/notes/note1',
     );
   });
 });
