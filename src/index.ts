@@ -34,6 +34,8 @@ const stream = new Stream(
   config.misskeyToken ? { token: config.misskeyToken } : null,
 );
 
+// `withFiles` follows Misskey's official semantics: subscribe only to
+// notes with attached files.
 const channelParams =
   config.timeline === 'localTimeline' || config.timeline === 'hybridTimeline'
     ? {
@@ -100,7 +102,9 @@ function attachChannel(): void {
           return;
         }
 
-        const payload = buildDiscordPayload(note, config.misskeyOrigin);
+        const payload = buildDiscordPayload(note, config.misskeyOrigin, {
+          includeAttachments: config.includeAttachments,
+        });
         await discordQueue.enqueue(config.discordWebhookUrl, payload);
         noteDeduper.markForwarded(note.id);
         console.log(`Forwarded note ${note.id} by ${note.user.username}`);
