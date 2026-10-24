@@ -114,6 +114,34 @@ describe('getForwardBlockReason', () => {
     );
   });
 
+  it('always blocks notes hidden from anonymous viewers', () => {
+    assert.equal(
+      getForwardBlockReason(createNote({ text: null, isHidden: true }), {
+        forwardCw: true,
+        forwardNsfw: true,
+        forwardReplies: true,
+      }),
+      'hidden',
+    );
+  });
+
+  it('blocks pure renotes of hidden notes but not quotes of them', () => {
+    const hidden = createNote({ id: 'note2', text: null, isHidden: true });
+    const policy = { forwardCw: true, forwardNsfw: true, forwardReplies: true };
+
+    assert.equal(
+      getForwardBlockReason(createNote({ text: null, renote: hidden }), policy),
+      'hidden',
+    );
+    assert.equal(
+      getForwardBlockReason(
+        createNote({ text: 'Look at this', renote: hidden }),
+        policy,
+      ),
+      null,
+    );
+  });
+
   it('allows safe notes through', () => {
     assert.equal(
       getForwardBlockReason(createNote(), {
