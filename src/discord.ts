@@ -8,6 +8,9 @@ const DISCORD_EMBED_AUTHOR_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
 const NOTE_EMBED_COLOR = 0x86b300;
+// Hidden notes themselves are filtered out; this only covers a quote whose
+// target is hidden (see note-filter.ts).
+const HIDDEN_NOTE_TEXT = '（未ログインでは内容を表示できないノートです）';
 
 type DiscordEmbed = {
   title?: string;
@@ -160,7 +163,9 @@ function formatQuotedNote(note: entities.Note, origin: string): string {
       lines.push(note.cw ? `> ${wrapSpoiler(line)}` : `> ${line}`);
     }
   }
-  if (!note.text && !note.cw) {
+  if (note.isHidden) {
+    lines.push(`> ${HIDDEN_NOTE_TEXT}`);
+  } else if (!note.text && !note.cw) {
     lines.push('> (内容なし)');
   }
 

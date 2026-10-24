@@ -362,4 +362,22 @@ describe('buildDiscordPayload', () => {
       'https://misskey.example.com/notes/note1',
     );
   });
+
+  it('shows a placeholder for a hidden quote target', () => {
+    const payload = buildDiscordPayload(
+      createNote({
+        text: 'Look at this',
+        renote: createNote({ id: 'note2', text: null, isHidden: true }),
+      }),
+      origin,
+    );
+
+    const description = mainEmbed(payload)?.description ?? '';
+    assert.match(description, /^Look at this/);
+    assert.match(
+      description,
+      /> （未ログインでは内容を表示できないノートです）/,
+    );
+    assert.doesNotMatch(description, /内容なし/);
+  });
 });
