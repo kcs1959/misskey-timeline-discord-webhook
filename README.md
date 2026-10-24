@@ -59,6 +59,15 @@ npm run dev   # 開発（ホットリロード）
 npm run build && npm start
 ```
 
+## GitHub Actions のロックファイル
+
+ワークフローが使う Action は `.github/workflows/actions.lock` でコミット SHA に固定しています。ワークフローの `uses:` を変えたり、ワークフローを追加したりしたときは、[`gh actions-lock`](https://github.com/github/gh-actions-lock) でロックファイルを更新してください（手で編集しないこと）。Dependabot による Action の更新では、ロックファイルも同じ PR で自動的に更新されます（ただし、まだロックファイルに載っていない新しいワークフローは対象外なので、追加したら一度 `gh actions-lock` を実行してください）。
+
+```bash
+gh extension install github/gh-actions-lock
+gh actions-lock
+```
+
 ## Discord への送信形式
 
 - 投稿者のアイコン・表示名を Webhook の `username` / `avatar_url` に設定
