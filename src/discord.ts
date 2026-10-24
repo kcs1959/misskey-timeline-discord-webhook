@@ -4,6 +4,7 @@ const DISCORD_EMBED_LIMIT = 10;
 const DISCORD_FETCH_TIMEOUT_MS = 30_000;
 const DISCORD_USERNAME_LIMIT = 80;
 const DISCORD_EMBED_TITLE_LIMIT = 256;
+const DISCORD_EMBED_AUTHOR_LIMIT = 256;
 const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096;
 const DISCORD_EMBED_TOTAL_CHARS = 6000;
 const NOTE_EMBED_COLOR = 0x86b300;
@@ -14,6 +15,7 @@ type DiscordEmbed = {
   url?: string;
   timestamp?: string;
   color?: number;
+  author?: { name: string; icon_url?: string; url?: string };
   footer?: { text: string; icon_url?: string };
   image?: { url: string };
 };
@@ -264,6 +266,9 @@ function embedCharCount(embed: DiscordEmbed): number {
   if (embed.image?.url) {
     count += embed.image.url.length;
   }
+  if (embed.author?.name) {
+    count += embed.author.name.length;
+  }
   if (embed.footer?.text) {
     count += embed.footer.text.length;
   }
@@ -367,8 +372,8 @@ export function buildDiscordPayload(
     0,
     DISCORD_EMBED_TOTAL_CHARS -
       DISCORD_EMBED_DESCRIPTION_LIMIT -
-      DISCORD_EMBED_TITLE_LIMIT -
-      noteUrl.length,
+      DISCORD_EMBED_AUTHOR_LIMIT -
+      new URL(origin).hostname.length,
   );
   const extraEmbeds = enforceEmbedLimits(
     rawEmbeds,
@@ -397,11 +402,14 @@ export function buildDiscordPayload(
   );
 
   const mainEmbed: DiscordEmbed = {
-    title: truncatePlain(
-      `${authorName} (@${formatUserName(note.user)})`,
-      DISCORD_EMBED_TITLE_LIMIT,
-    ),
-    url: noteUrl,
+    author: {
+      name: truncatePlain(
+        `${authorName} (@${formatUserName(note.user)})`,
+        DISCORD_EMBED_AUTHOR_LIMIT,
+      ),
+      icon_url: toAbsoluteUrl(note.user.avatarUrl, origin),
+      url: noteUrl,
+    },
     description: description || undefined,
     timestamp: note.createdAt,
     color: NOTE_EMBED_COLOR,

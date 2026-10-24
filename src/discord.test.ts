@@ -82,10 +82,16 @@ describe('buildDiscordPayload', () => {
 
     const embed = mainEmbed(payload);
     assert.match(embed?.description ?? '', /Hello/);
-    assert.equal(embed?.url, 'https://misskey.example.com/notes/note1');
-    assert.equal(embed?.title, 'Display Name (@alice)');
+    assert.equal(embed?.title, undefined);
+    assert.equal(embed?.author?.name, 'Display Name (@alice)');
+    assert.equal(
+      embed?.author?.icon_url,
+      'https://misskey.example.com/avatar.png',
+    );
+    assert.equal(embed?.author?.url, 'https://misskey.example.com/notes/note1');
     assert.equal(embed?.timestamp, '2026-01-01T00:00:00.000Z');
     assert.equal(embed?.footer?.text, 'misskey.example.com');
+    assert.equal(embed?.footer?.icon_url, undefined);
   });
 
   it('wraps CW note text in Discord spoilers', () => {
@@ -251,7 +257,7 @@ describe('buildDiscordPayload', () => {
     );
   });
 
-  it('truncates long main embed titles', () => {
+  it('truncates long embed author names', () => {
     const payload = buildDiscordPayload(
       createNote({
         user: createUser({ name: 'n'.repeat(300) }),
@@ -259,8 +265,8 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.equal(mainEmbed(payload)?.title?.length, 256);
-    assert.match(mainEmbed(payload)?.title ?? '', /…$/);
+    assert.equal(mainEmbed(payload)?.author?.name.length, 256);
+    assert.match(mainEmbed(payload)?.author?.name ?? '', /…$/);
   });
 
   it('truncates long webhook usernames', () => {
@@ -332,7 +338,7 @@ describe('buildDiscordPayload', () => {
     assert.match(description, /Expires: 2026-12-31T00:00:00.000Z/);
   });
 
-  it('includes the full acct handle in the title for remote users', () => {
+  it('includes the full acct handle in the author name for remote users', () => {
     const payload = buildDiscordPayload(
       createNote({
         user: createUser({
@@ -344,15 +350,15 @@ describe('buildDiscordPayload', () => {
       origin,
     );
 
-    assert.equal(mainEmbed(payload)?.title, 'bob (@bob@remote.example)');
+    assert.equal(mainEmbed(payload)?.author?.name, 'bob (@bob@remote.example)');
   });
 
-  it('always links the main embed title to the note permalink', () => {
+  it('always links the embed author to the note permalink', () => {
     const payload = buildDiscordPayload(createNote(), origin);
 
-    assert.equal(mainEmbed(payload)?.title, 'Display Name (@alice)');
+    assert.equal(mainEmbed(payload)?.author?.name, 'Display Name (@alice)');
     assert.equal(
-      mainEmbed(payload)?.url,
+      mainEmbed(payload)?.author?.url,
       'https://misskey.example.com/notes/note1',
     );
   });
